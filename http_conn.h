@@ -63,8 +63,9 @@ public:
     static int m_epollfd;
     static int m_client_count;
     static const int READ_BUFFER_SIZE = 2048;
-    static const int WRITE_BUFFER_SIZE = 2048;
-
+    // why 1024?
+    static const int WRITE_BUFFER_SIZE = 1024;
+    static const int FILENAME_LEN = 200;
 
     Http_conn() {}
     ~Http_conn() {}
@@ -74,6 +75,27 @@ public:
     void close_conn();
     bool read();
     bool write();
+
+    void init();
+    HTTP_CODE process_read();
+    bool process_write(HTTP_CODE ret);
+    HTTP_CODE parse_request_line(char *text);
+    HTTP_CODE parse_header(char *text);
+    HTTP_CODE parse_content(char *text);
+    HTTP_CODE do_request();
+    void unmap();
+
+    LINE_STATUS parse_line();
+    char *get_line() { return m_read_buf + m_read_index; };
+
+    bool add_response(const char *format, ...);
+    bool add_content(const char *content);
+    bool add_content_type();
+    bool add_status_line(int status, const char *title);
+    bool add_headers(int content_length);
+    bool add_content_length(int content_length);
+    bool add_linger();
+    bool add_blank_line();
 
 private:
     int m_sockfd;
@@ -85,23 +107,21 @@ private:
     int m_checked_index;
     int m_start_line;
     int m_read_index;
+    int m_content_length;
+    char m_real_file[FILENAME_LEN];
 
-    char * m_url;
+    char *m_url;
     char * m_version;
     char * m_host;
     METHOD m_method;
     bool m_linger;
 
-    void init();
-    HTTP_CODE process_read();
-    HTTP_CODE parse_request_line(char * text);
-    HTTP_CODE parse_header(char * text);
-    HTTP_CODE parse_content(char * text);
-    HTTP_CODE do_request();
-
-    LINE_STATUS parse_line();
-    char * get_line() {return m_read_buf + m_read_index;};
-
+    char m_write_buf[WRITE_BUFFER_SIZE]; // 写缓冲区
+    int m_write_idx;                     // 写缓冲区中待发送的字节数
+    char *m_file_address;                // 客户请求的目标文件被mmap到内存中的起始位置
+    struct stat m_file_stat;             
+    struct iovec m_iv[2];                // 我们将采用writev来执行写操作，所以定义下面两个成员，其中m_iv_count表示被写内存块的数量。
+    int m_iv_count;
 };
 
 #endif
