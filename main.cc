@@ -46,10 +46,10 @@ int main(int argc, char const *argv[])
     // why?
     addsig(SIGPIPE, SIG_IGN);
 
-    Threadpool<Http_conn> * pool = NULL;
+    Threadpool<HttpConn> * pool = NULL;
     try
     {
-        pool = new Threadpool<Http_conn>;
+        pool = new Threadpool<HttpConn>;
     }
     catch(const std::exception& e)
     {
@@ -57,7 +57,7 @@ int main(int argc, char const *argv[])
     }
     
 
-    Http_conn * clients = new Http_conn[MAX_FD];
+    HttpConn * clients = new HttpConn[MAX_FD];
 
     int listen_fd = socket(PF_INET, SOCK_STREAM, 0);
     int reuse = 1;
@@ -68,15 +68,16 @@ int main(int argc, char const *argv[])
     address.sin_addr.s_addr = INADDR_ANY;
     address.sin_port = htons(port);
 
-    bind(listen_fd, (struct sockaddr*) & address, sizeof(address));
+    int ret = 0;
 
-    listen(listen_fd, 5);
+    ret = bind(listen_fd, (struct sockaddr*) & address, sizeof(address));
+    ret = listen(listen_fd, 5);
 
     epoll_event events[MAX_EVENT_NUMBER];
     int epoll_fd = epoll_create(5);
 
     addfd(epoll_fd, listen_fd, false);
-    Http_conn::m_epollfd = epoll_fd;
+    HttpConn::epoll_fd_ = epoll_fd;
 
     while (true)
     {
@@ -96,29 +97,29 @@ int main(int argc, char const *argv[])
                 socklen_t client_addrlen = sizeof(client_address);
                 int connfd = accept(listen_fd, (struct sockaddr*)&client_address, &client_addrlen);
 
-                if (Http_conn::m_client_count >= MAX_FD)
+                if (HttpConn::client_count_ >= MAX_FD)
                 {
                     close(connfd);
                 }
                 
-                clients[connfd].init(connfd, client_address);
+                clients[connfd].Init(connfd, client_address);
             } else if (events[i].events & (EPOLLRDHUP | EPOLLHUP | EPOLLERR))
             {
-                clients[sockfd].close_conn();
+                clients[sockfd].CloseConn();
             } else if (events[i].events & EPOLLIN)
             {
-                if (clients[sockfd].read())
+                if (clients[sockfd].Read())
                 {
-                    pool->append(clients + sockfd);
+                    pool->Append(clients + sockfd);
                 } else
                 {
-                    clients[sockfd].close_conn();
+                    clients[sockfd].CloseConn();
                 }
             } else if (events[i].events & EPOLLOUT)
             {
-                if (!clients[sockfd].write())
+                if (!clients[sockfd].Write())
                 {
-                    clients[sockfd].close_conn();
+                    clients[sockfd].CloseConn();
                 }
             }   
         }

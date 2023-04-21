@@ -6,57 +6,59 @@
 #include "locker.h"
 #include <cstdio>
 
+// why template
 template <typename T>
 class Threadpool
 {
 public:
     Threadpool(int thread_number = 8, int max_requests = 10000);
     ~Threadpool();
-    bool append(T *request);
+    bool Append(T *request);
 
 private:
     // why?
-    static void *worker(void *arg);
-    void run();
+    static void *Worker(void *arg);
+    void Run();
 
 private:
-    int m_thread_number;
-    pthread_t *m_threads;
-    int m_max_requests;
-    std::list<T *> m_workqueue;
-    Locker m_queuelocker;
-    Sem m_queuestat;
-    bool m_stop;
+    int thread_number_;
+    pthread_t *threads_;
+    int max_requests_;
+    std::list<T *> workqueue_;
+    Locker queue_locker_;
+    Sem queue_stat_;
+    bool stop_;
 };
 
+// list initialization
 template <typename T>
-Threadpool<T>::Threadpool(int thread_number, int max_requests) : m_thread_number(thread_number), m_max_requests(max_requests),
-                                                                 m_stop(false), m_threads(NULL)
+Threadpool<T>::Threadpool(int thread_number, int max_requests) : thread_number_(thread_number), max_requests_(max_requests),
+                                                                 stop_(false), threads_(NULL)
 {
     if ((thread_number <= 0) || (max_requests <= 0))
     {
         throw std::exception();
     }
 
-    m_threads = new pthread_t[m_thread_number];
-    if (!m_threads)
+    threads_ = new pthread_t[thread_number_];
+    if (!threads_)
     {
         throw std::exception();
     }
 
-    for (int i = 0; i < thread_number; ++i)
+    for (int i = 0; i < thread_number_; ++i)
     {
         printf("create the %dth thread\n", i);
 
-        if (pthread_create(m_threads + i, NULL, worker, this) != 0)
+        if (pthread_create(threads_ + i, NULL, Worker, this) != 0)
         {
-            delete[] m_threads;
+            delete[] threads_;
             throw std::exception();
         }
 
-        if (pthread_detach(m_threads[i]))
+        if (pthread_detach(threads_[i]))
         {
-            delete[] m_threads;
+            delete[] threads_;
             throw std::exception();
         }
     }
@@ -65,56 +67,56 @@ Threadpool<T>::Threadpool(int thread_number, int max_requests) : m_thread_number
 template <typename T>
 Threadpool<T>::~Threadpool()
 {
-    delete m_threads;
-    m_stop = true;
+    delete threads_;
+    stop_ = true;
 }
 
 template <typename T>
-bool Threadpool<T>::append(T *request)
+bool Threadpool<T>::Append(T *request)
 {
-    m_queuelocker.lock();
-    if (m_workqueue.size() > m_max_requests)
+    queue_locker_.Lock();
+    if (workqueue_.size() > max_requests_)
     {
-        m_queuelocker.unlock();
+        queue_locker_.Unlock();
         return false;
     }
 
-    m_workqueue.push_back(request);
-    m_queuelocker.unlock();
-    m_queuestat.post();
-    return true;
+    workqueue_.push_back(request);
+    queue_locker_.Unlock();
+    queue_stat_.Post();
+    return stop_;
 }
 
 template <typename T>
-void *Threadpool<T>::worker(void *arg)
+void *Threadpool<T>::Worker(void *arg)
 {
     Threadpool *pool = (Threadpool *)arg;
-    pool->run();
+    pool->Run();
     return pool;
 }
 
 template <typename T>
-void Threadpool<T>::run()
+void Threadpool<T>::Run()
 {
-    while (!m_stop)
+    while (!stop_)
     {
-        m_queuestat.wait();
-        m_queuelocker.lock();
-        if (m_workqueue.empty())
+        queue_stat_.Wait();
+        queue_locker_.Lock();
+        if (workqueue_.empty())
         {
-            m_queuelocker.unlock();
+            queue_locker_.Unlock();
             continue;
         }
 
-        T *request = m_workqueue.front();
-        m_workqueue.pop_front();
-        m_queuelocker.unlock();
+        T *request = workqueue_.front();
+        workqueue_.pop_front();
+        queue_locker_.Unlock();
 
         if (!request)
         {
             continue;
         }
-        request->process();
+        request->Process();
     }
 }
 

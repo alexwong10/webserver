@@ -57,71 +57,77 @@ enum LINE_STATUS
     LINE_OPEN
 };
 
-class Http_conn
+static const int kReadBufferSize = 2048;
+// why 1024?
+static const int kWriteBufferSize = 1024;
+static const int kFilenameLen = 200;
+
+
+class HttpConn
 {
 public:
-    static int m_epollfd;
-    static int m_client_count;
-    static const int READ_BUFFER_SIZE = 2048;
-    // why 1024?
-    static const int WRITE_BUFFER_SIZE = 1024;
-    static const int FILENAME_LEN = 200;
+    static int epoll_fd_;
+    static int client_count_;
+    
+    HttpConn() {}
+    ~HttpConn() {}
 
-    Http_conn() {}
-    ~Http_conn() {}
+    void Process();
+    void Init(int sockfd, const sockaddr_in & addr);
+    void CloseConn();
+    bool Read();
+    bool Write();
 
-    void process();
-    void init(int sockfd, const sockaddr_in & addr);
-    void close_conn();
-    bool read();
-    bool write();
+    void Init();
+    HTTP_CODE ProcessRead();
+    bool ProcessWrite(HTTP_CODE ret);
+    HTTP_CODE ParseRequestLine(char *text);
+    HTTP_CODE ParseHeader(char *text);
+    HTTP_CODE ParseContent(char *text);
+    HTTP_CODE DoRequest();
+    void Unmap();
 
-    void init();
-    HTTP_CODE process_read();
-    bool process_write(HTTP_CODE ret);
-    HTTP_CODE parse_request_line(char *text);
-    HTTP_CODE parse_header(char *text);
-    HTTP_CODE parse_content(char *text);
-    HTTP_CODE do_request();
-    void unmap();
+    LINE_STATUS ParseLine();
+    char *GetLine() { return read_buf_ + read_index_; };
 
-    LINE_STATUS parse_line();
-    char *get_line() { return m_read_buf + m_read_index; };
-
-    bool add_response(const char *format, ...);
-    bool add_content(const char *content);
-    bool add_content_type();
-    bool add_status_line(int status, const char *title);
-    bool add_headers(int content_length);
-    bool add_content_length(int content_length);
-    bool add_linger();
-    bool add_blank_line();
+    // arguments ... what does it mean?
+    bool AddResponse(const char *format, ...);
+    bool AddContent(const char *content);
+    bool AddContentType();
+    bool AddStatusLine(int status, const char *title);
+    void AddHeader(int content_length);
+    bool AddContentLength(int content_length);
+    bool AddKeepAlive();
+    bool AddBlankLine();
 
 private:
-    int m_sockfd;
-    sockaddr_in m_address;
-    CHECK_STATE m_check_state;
+    int sockfd_;
+    sockaddr_in address_;
+    CHECK_STATE check_state_;
 
-    char m_read_buf[READ_BUFFER_SIZE];
+    char read_buf_[kReadBufferSize];
 
-    int m_checked_index;
-    int m_start_line;
-    int m_read_index;
-    int m_content_length;
-    char m_real_file[FILENAME_LEN];
+    int checked_index_;
+    int start_line_;
+    int read_index_;
+    int content_length_;
+    char real_file_[kFilenameLen];
 
-    char *m_url;
-    char * m_version;
-    char * m_host;
-    METHOD m_method;
-    bool m_linger;
+    char * url_;
+    char * version_;
+    char * host_;
+    METHOD method_;
+    bool keep_alive_;
 
-    char m_write_buf[WRITE_BUFFER_SIZE]; // 写缓冲区
-    int m_write_idx;                     // 写缓冲区中待发送的字节数
-    char *m_file_address;                // 客户请求的目标文件被mmap到内存中的起始位置
-    struct stat m_file_stat;             
-    struct iovec m_iv[2];                // 我们将采用writev来执行写操作，所以定义下面两个成员，其中m_iv_count表示被写内存块的数量。
-    int m_iv_count;
+    char write_buf_[kWriteBufferSize]; // 写缓冲区
+    int write_index_;                     // 写缓冲区中待发送的字节数
+    char * file_address_;                // 客户请求的目标文件被mmap到内存中的起始位置
+    struct stat file_stat_;             
+    struct iovec iovecs_[2];                // 我们将采用writev来执行写操作，所以定义下面两个成员，其中m_iv_count表示被写内存块的数量。
+    int iovec_count_;
+
+    int bytes_to_send_;
+    int bytes_sent_;
 };
 
-#endif
+#endif // HTTPCONNECTION_H

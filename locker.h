@@ -10,7 +10,7 @@ class Locker
 public:
     Locker()
     {
-        if (pthread_mutex_init(&m_mutex, NULL) != 0)
+        if (pthread_mutex_init(&mutex_, NULL) != 0)
         {
             throw std::exception();
         }
@@ -18,21 +18,21 @@ public:
 
     ~Locker()
     {
-        pthread_mutex_destroy(&m_mutex);
+        pthread_mutex_destroy(&mutex_);
     }
 
-    bool lock()
+    bool Lock()
     {
-        return pthread_mutex_lock(&m_mutex) == 0;
+        return pthread_mutex_lock(&mutex_) == 0;
     }
 
-    bool unlock()
+    bool Unlock()
     {
-        return pthread_mutex_unlock(&m_mutex) == 0;
+        return pthread_mutex_unlock(&mutex_) == 0;
     }
 
 private:
-    pthread_mutex_t m_mutex;
+    pthread_mutex_t mutex_;
 };
 
 class Cond
@@ -40,7 +40,7 @@ class Cond
 public:
     Cond()
     {
-        if (pthread_cond_init(&m_cond, NULL) != 0)
+        if (pthread_cond_init(&cond_, NULL) != 0)
         {
             throw std::exception();
         }
@@ -48,26 +48,26 @@ public:
 
     ~Cond()
     {
-        pthread_cond_destroy(&m_cond);
+        pthread_cond_destroy(&cond_);
     }
 
-    bool timedwait(pthread_mutex_t *mutex, struct timespec t)
+    bool Timedwait(pthread_mutex_t *mutex, struct timespec t)
     {
-        return pthread_cond_timedwait(&m_cond, mutex, &t) == 0;
+        return pthread_cond_timedwait(&cond_, mutex, &t) == 0;
     }
 
-    bool signal()
+    bool Signal()
     {
-        return pthread_cond_signal(&m_cond) == 0;
+        return pthread_cond_signal(&cond_) == 0;
     }
 
-    bool broadcast()
+    bool Broadcast()
     {
-        return pthread_cond_broadcast(&m_cond) == 0;
+        return pthread_cond_broadcast(&cond_) == 0;
     }
 
 private:
-    pthread_cond_t m_cond;
+    pthread_cond_t cond_;
 };
 
 class Sem
@@ -75,7 +75,7 @@ class Sem
 public:
     Sem()
     {
-        if (sem_init(&m_sem, 0, 0) != 0)
+        if (sem_init(&sem_, 0, 0) != 0)
         {
             throw std::exception();
         }
@@ -83,7 +83,7 @@ public:
 
     Sem(int num)
     {
-        if (sem_init(&m_sem, 0, num) != 0)
+        if (sem_init(&sem_, 0, num) != 0)
         {
             throw std::exception();
         }
@@ -91,21 +91,21 @@ public:
 
     ~Sem()
     {
-        sem_destroy(&m_sem);
+        sem_destroy(&sem_);
     }
 
-    bool wait()
+    bool Wait()
     {
-        return sem_wait(&m_sem) == 0;
+        return sem_wait(&sem_) == 0;
     }
 
-    bool post()
+    bool Post()
     {
-        return sem_post(&m_sem) == 0;
+        return sem_post(&sem_) == 0;
     }
 
 private:
-    sem_t m_sem;
+    sem_t sem_;
 };
 
 #endif // LOCKER_H
