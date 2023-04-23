@@ -37,7 +37,7 @@ int main(int argc, char const *argv[])
 {
     if(argc <= 1)
     {
-        printf("%s port_number\n", basename(argv[0]));
+        printf("usage: %s port_number\n", basename(argv[0]));
         exit(-1);
     }
 
@@ -60,16 +60,14 @@ int main(int argc, char const *argv[])
     HttpConn * clients = new HttpConn[MAX_FD];
 
     int listen_fd = socket(PF_INET, SOCK_STREAM, 0);
-    int reuse = 1;
-    setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
-
+    int ret = 0;
     struct sockaddr_in address;
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
     address.sin_port = htons(port);
 
-    int ret = 0;
-
+    int reuse = 1;
+    setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
     ret = bind(listen_fd, (struct sockaddr*) & address, sizeof(address));
     ret = listen(listen_fd, 5);
 
@@ -96,7 +94,11 @@ int main(int argc, char const *argv[])
                 struct sockaddr_in client_address;
                 socklen_t client_addrlen = sizeof(client_address);
                 int connfd = accept(listen_fd, (struct sockaddr*)&client_address, &client_addrlen);
-
+                if (connfd < 0)
+                {
+                    printf("errno is: %d\n", errno);
+                    continue;
+                }
                 if (HttpConn::client_count_ >= MAX_FD)
                 {
                     close(connfd);

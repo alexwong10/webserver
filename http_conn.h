@@ -88,7 +88,7 @@ public:
     void Unmap();
 
     LINE_STATUS ParseLine();
-    char *GetLine() { return read_buf_ + read_index_; };
+    char *GetLine() { return read_buf_ + start_line_; };
 
     // arguments ... what does it mean?
     bool AddResponse(const char *format, ...);
